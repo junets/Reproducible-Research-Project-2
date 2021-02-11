@@ -1,0 +1,131 @@
+---
+title: "Reproducible Research Project 2: NOAA Storm Data Analysis"
+output: 
+    pdf_document: default
+    html_document: default
+---
+
+```{r setup, echo = TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+### Synopsis
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
+
+This study explores the criticality of different events based on three aforementioned parameters viz., fatalities, injuries and economic damage. It identifies the top six critical events across each parameter and compares with the others.
+
+The analysis identifies Tornado to be the most destructive on a personal level as it causes the highest number of fatalities and injuries. It also shows that Floods are the major cause for property damage.
+
+
+### Data
+The data for this assignment come in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size. You can download the file from the course web site:
+
+* [Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) [47Mb]
+
+There is also some documentation of the database available. Here you will find how some of the variables are constructed/defined.
+
+* National Weather Service [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
+* National Climatic Data Center Storm Events [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+
+The events in the database start in the year 1950 and end in November 2011. In the earlier years of the database there are generally fewer events recorded, most likely due to a lack of good records. More recent years should be considered more complete.
+
+### Data Processing
+#### Read the Data
+```{r read, echo = TRUE}
+storm <- read.csv(bzfile("repdata_data_StormData.csv.bz2"))
+names(storm)
+```
+#### Data Cleaning 
+Key variables used for the analysis are:
+
+* EVTYPE : Type of the event
+* FATALITIES : Number of fatalities from the event
+* INJURIES : Nunber of injuries from the event
+* PROPDMG : Property damage measured
+* CROPDMG : Crop damage measured
+* PROPDMGEXP : Property damage exponent (Mns, Bns etc)
+* CROPDMGEXP : Crop damage exponent (Mns, Bns etc)
+```{r clean, echo = TRUE}
+storm2 <- select(storm, c(EVTYPE, FATALITIES, INJURIES, PROPDMG, CROPDMG, PROPDMGEXP, CROPDMGEXP))
+unique(storm2$PROPDMGEXP)
+unique(storm2$CROPDMGEXP)
+storm2$PROPDMGEXP <- toupper(storm2$PROPDMGEXP)
+storm2$PROPDMGEXP[storm2$PROPDMGEXP %in% c("", "+", "-", "?")] <- "0"
+storm2$PROPDMGEXP[storm2$PROPDMGEXP %in% c("B")] <- "9"
+storm2$PROPDMGEXP[storm2$PROPDMGEXP %in% c("M")] <- "6"
+storm2$PROPDMGEXP[storm2$PROPDMGEXP %in% c("K")] <- "3"
+storm2$PROPDMGEXP[storm2$PROPDMGEXP %in% c("H")] <- "2"
+storm2$PROPDMGEXP <- as.numeric(storm2$PROPDMGEXP)
+
+storm2$CROPDMGEXP <- toupper(storm2$CROPDMGEXP)
+storm2$CROPDMGEXP[storm2$CROPDMGEXP %in% c("", "+", "-", "?")] <- "0"
+storm2$CROPDMGEXP[storm2$CROPDMGEXP %in% c("B")] <- "9"
+storm2$CROPDMGEXP[storm2$CROPDMGEXP %in% c("M")] <- "6"
+storm2$CROPDMGEXP[storm2$CROPDMGEXP %in% c("K")] <- "3"
+storm2$CROPDMGEXP[storm2$CROPDMGEXP %in% c("H")] <- "2"
+storm2$CROPDMGEXP <- as.numeric(storm2$CROPDMGEXP)
+
+storm2$PROPDMGTOTAL <- storm2$PROPDMG * (10 ** storm2$PROPDMGEXP)
+storm2$CROPDMGTOTAL <- storm2$CROPDMG * (10 ** storm2$CROPDMGEXP)
+storm2$DMGTOTAL <- storm2$PROPDMGTOTAL + storm2$CROPDMGTOTAL
+str(storm2)
+```
+### Analyzing
+```{r analysis, echo = TRUE}
+SumData <- storm2 %>%
+    group_by(EVTYPE) %>%
+    summarize(SUMFATALITIES = sum(FATALITIES),
+              SUMINJURIES = sum(INJURIES),
+              SUMPROPDMG = sum(PROPDMGTOTAL),
+              SUMCROPDMG = sum(CROPDMGTOTAL),
+              TOTALDMG = sum(DMGTOTAL))
+
+head(SumData)
+
+Fatality <- arrange(SumData, desc(SUMFATALITIES))
+FatalityData <- Fatality[1:10,]
+Injury <- arrange(SumData, desc(SUMINJURIES))
+InjuryData <- Injury[1:10,]
+Damage <- SumData[order(-SumData$TOTALDMG), ]
+DamageData <- Damage[1:10,]
+```
+
+### Result
+
+This would show the top 10 types of elements which lead to fatalities.
+```{r Fatalities, echo = TRUE}
+FatalityData$EVTYPE <- with(FatalityData, reorder(EVTYPE, -SUMFATALITIES))
+ggplot(FatalityData, aes(EVTYPE, SUMFATALITIES, label = SUMFATALITIES)) +
+    geom_bar(stat = "identity", aes(color = EVTYPE)) +
+    geom_text(nudge_y = 200) +
+    xlab("Event Type") +
+    ylab("Total Fatalities") +
+    ggtitle("Most Fatal Events") +
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+This would show the top 10 types of elements which lead to injuries.
+```{r Injuries, echo = TRUE}
+InjuryData$EVTYPE <- with(InjuryData, reorder(EVTYPE, -SUMINJURIES))
+ggplot(FatalityData, aes(EVTYPE, SUMFATALITIES, label = SUMFATALITIES)) +
+    geom_bar(stat = "identity", aes(color = EVTYPE)) +
+    geom_text(nudge_y = 200) +
+    xlab("Event Type") +
+    ylab("Total Fatalities") +
+    ggtitle("Most Fatal Events") +
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+This would show the top 10 types of elements which lead to total damages.
+```{r Damage, echo = TRUE}
+DamageData$EVTYPE <- with(DamageData, reorder(EVTYPE, -TOTALDMG))
+ggplot(DamageData, aes(x = EVTYPE, y = TOTALDMG)) +
+    geom_bar(stat = "identity", aes(color = EVTYPE)) +
+    xlab("Event Type") +
+    ylab("Total Damage") +
+    ggtitle("Events with Most Damage") +
+    theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom")
+```
