@@ -1,8 +1,10 @@
 ---
-title: "Reproducible Research Project 2: NOAA Storm Data Analysis"
-output: 
-    pdf_document: default
-    html_document: default
+title: 'Reproducible Research Project 2: NOAA Storm Data Analysis'
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ```{r setup, echo = TRUE}
